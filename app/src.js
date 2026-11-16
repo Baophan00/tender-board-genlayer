@@ -44,6 +44,9 @@ function boot() {
   $("who").title = account.address;
 }
 
+const refreshBtn = document.getElementById("refresh");
+if (refreshBtn) refreshBtn.addEventListener("click", () => renderAll());
+
 $("keybtn").addEventListener("click", () => {
   const fresh = { privateKey: generatePrivateKey() };
   localStorage.setItem(KEY_SLOT, JSON.stringify(fresh));
@@ -54,6 +57,19 @@ $("keybtn").addEventListener("click", () => {
 
 const read = (functionName, args) =>
   client.readContract({ address: CONTRACT, functionName, args });
+
+async function readWithRetry(functionName, args, tries = 2) {
+  let last;
+  for (let attempt = 0; attempt < tries; attempt += 1) {
+    try {
+      return await read(functionName, args);
+    } catch (error) {
+      last = error;
+      await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+    }
+  }
+  throw last;
+}
 
 const write = (functionName, args) =>
   client.writeContract({ address: CONTRACT, functionName, args, value: 0n });
@@ -87,7 +103,7 @@ async function commitmentFor(price, days, salt) {
 
 async function renderStats() {
   try {
-    const s = await read("stats", []);
+    const s = await readWithRetry("stats", []);
     $("stats").replaceChildren(
       ...[
         ["Tenders", s.tenders],
@@ -109,7 +125,7 @@ async function renderStats() {
 async function renderList() {
   let rows = [];
   try {
-    rows = await read("list_tenders", [0, 30]);
+    rows = await readWithRetry("list_tenders", [0, 30]);
   } catch (error) {
     $("list").replaceChildren(el("div", "empty", String(error.message).slice(0, 140)));
     return;
@@ -163,20 +179,15 @@ function weightBar(weights) {
 }
 
 function stepper(tender) {
-  const steps = el("div", "steps");
   const state = tender.status;
   const order = [
-    ["sealed bids", state === "open"],
+    ["sealed bids", true],
     ["bidding closed", state === "scoring" || state === "awarded"],
     ["readings", tender.scored > 0 || state === "awarded"],
     ["award", state === "awarded"],
   ];
-  let reached = true;
-  for (const [label, on] of order) {
-    const step = el("div", `step${on && reached ? " on" : ""}`, label);
-    steps.append(step);
-    if (!on) reached = false;
-  }
+  const steps = el("div", "steps");
+  for (const [label, on] of order) steps.append(el("div", `step${on ? " on" : ""}`, label));
   return steps;
 }
 
@@ -206,7 +217,7 @@ function bidRow(bid, tender, isBuyer) {
   head.append(el("strong", "", `bid ${bid.seq}`));
   head.append(el("span", "who", `${short(bid.bidder)}${bid.bidder === account.address.toLowerCase() ? " (you)" : ""}`));
   if (!bid.revealed) head.append(el("span", "pill", "sealed"));
-  else if (bid.bucket) head.append(el("span", `pill ${bid.total >= 80 ? "awarded" : bid.bucket === "weak" ? "cancelled" : "scoring"}`, bid.bucket));
+  else if (bid.bucket) head.append(el("span", `pill ${bid.bucket === "strong" ? "strong" : bid.bucket === "weak" ? "weak" : "scoring"}`, bid.bucket));
   else head.append(el("span", "pill open", "revealed, no reading"));
   if (tender.winner && bid.bidder === tender.winner) head.append(el("span", "pill awarded", "winner"));
   box.append(head);
@@ -230,8 +241,9 @@ function bidRow(bid, tender, isBuyer) {
 }
 
 function revealForm(tender) {
-  const form = el("div", "card-body");
-  form.append(el("h2", "", "Reveal your bid"));
+  const form = el("div");
+  form.style.marginTop = "20px";
+  form.append(el("h2", "rubric-title", "Reveal your bid"));
   form.append(el("p", "note", "Commitment first, then the values and the salt you hashed. The contract checks the hash."));
 
   const build = async () => {
@@ -297,8 +309,8 @@ async function renderDetail() {
   let tender;
   let bids;
   try {
-    tender = await read("get_tender", [selected]);
-    bids = await read("bids_of", [selected]);
+    tender = await readWithRetry("get_tender", [selected]);
+    bids = await readWithRetry("bids_of", [selected]);
   } catch (error) {
     $("detail").replaceChildren(el("div", "card-body empty", String(error.message).slice(0, 160)));
     return;
@@ -307,45 +319,61 @@ async function renderDetail() {
   const me = account.address.toLowerCase();
   const isBuyer = tender.buyer === me;
 
-  const body = el("div", "card-body");
-  const head = el("div", "row1");
-  head.style.display = "flex";
-  head.style.gap = "8px";
-  head.style.alignItems = "center";
-  head.append(el("h2", "detail-title", tender.title));
-  head.append(el("span", `pill ${tender.status}`, tender.status));
+  const body = el("div");
+  const head = el("div", "detail-head");
+  const when = tender.created_at
+    ? new Date(tender.created_at * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : "";
+  head.append(el("div", "byline", `notice ${tender.id}${when ? ` / opened ${when}` : ""}`));
+  const titleRow = el("div", "row1");
+  titleRow.append(el("h2", "", tender.title));
+  titleRow.append(el("span", `pill ${tender.status}`, tender.status));
+  head.append(titleRow);
+  head.append(el("div", "byline", `buyer ${short(tender.buyer)}${isBuyer ? " (you)" : ""} / budget ${tender.budget} / up to ${tender.max_bids} bids`));
+  const briefLine = el("div", "brief");
+  briefLine.append(document.createTextNode("Brief: "));
+  const briefLink = el("a", "", tender.brief_url);
+  briefLink.href = tender.brief_url;
+  briefLink.target = "_blank";
+  briefLink.rel = "noreferrer";
+  briefLine.append(briefLink);
+  head.append(briefLine);
   body.append(head);
-  body.append(el("div", "kv", `buyer ${short(tender.buyer)}${isBuyer ? " (you)" : ""} / budget ${tender.budget} / up to ${tender.max_bids} bids`));
-  body.append(el("div", "kv", `brief: ${tender.brief_url}`));
 
+  body.append(el("div", "rubric-title", "The rubric, fixed at open"));
   const [bar, legend] = weightBar(tender.weights);
   body.append(bar, legend);
   body.append(stepper(tender));
 
   if (tender.winner) {
-    const banner = el("div", "winner");
-    banner.append(el("strong", "", `Awarded to ${short(tender.winner)} `));
-    banner.append(document.createTextNode(`on bid ${tender.winning_bid} with ${tender.winning_total} points.`));
-    body.append(banner);
+    const stamp = el("div", "winner");
+    stamp.append(el("strong", "", `Awarded to ${short(tender.winner)}`));
+    stamp.append(document.createTextNode(` on bid ${tender.winning_bid} with ${tender.winning_total} points`));
+    body.append(stamp);
   }
 
-  const list = el("div");
-  if (!bids.length) list.append(el("div", "empty", "No bid committed yet."));
-  for (const bid of bids) list.append(bidRow(bid, tender, isBuyer));
-  body.append(list);
+  const docket = el("div", "docket-title");
+  docket.append(el("span", "", "The docket"));
+  const tally = el("span", "", `${bids.filter((b) => b.revealed).length} opened of ${bids.length}`);
+  tally.style.marginLeft = "auto";
+  docket.append(tally);
+  body.append(docket);
+
+  if (!bids.length) body.append(el("div", "empty", "No bid committed yet."));
+  for (const bid of bids) body.append(bidRow(bid, tender, isBuyer));
 
   const actions = el("div", "actions");
   if (tender.status === "open" && isBuyer) {
-    const close = el("button", "primary", "Close bidding");
+    const close = el("button", "primary", "close bidding");
     close.addEventListener("click", () => run("Close bidding", "close_bidding", [tender.id]));
     actions.append(close);
-    const cancel = el("button", "ghost", "Cancel tender");
+    const cancel = el("button", "ghost", "cancel");
     cancel.addEventListener("click", () => run("Cancel", "cancel_tender", [tender.id]));
     actions.append(cancel);
   }
   if (tender.status === "scoring" && isBuyer) {
     const unscored = bids.filter((b) => b.revealed && !b.bucket).length;
-    const award = el("button", "primary", unscored ? "Read every bid before awarding" : "Award");
+    const award = el("button", "primary", unscored ? "read every bid first" : "award");
     award.disabled = unscored > 0;
     award.addEventListener("click", () => run("Award", "award", [tender.id]));
     actions.append(award);
@@ -355,7 +383,7 @@ async function renderDetail() {
   if (tender.status === "open") body.append(revealForm(tender));
 
   body.append(
-    el("p", "note", `Weights fixed at open: quality ${tender.weights.quality} / price ${tender.weights.price} / delivery ${tender.weights.delivery}. Price score is 100 × cheapest/price, delivery 100 × fastest/days.`)
+    el("p", "note", `Weights fixed at open: quality ${tender.weights.quality} / price ${tender.weights.price} / delivery ${tender.weights.delivery}. Price score is 100 x cheapest/price, delivery 100 x fastest/days.`)
   );
 
   $("detail").replaceChildren(body);

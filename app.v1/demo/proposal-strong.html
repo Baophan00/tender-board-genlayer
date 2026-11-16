@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Proposal — Northwind Docs Engine</title>
+<style>
+  body { margin: 0; background: #f4f5f7; color: #26303c;
+         font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  main { max-width: 780px; margin: 0 auto; padding: 56px 22px 96px; }
+  .card { background: #fff; border: 1px solid #e3e6ea; border-radius: 14px; padding: 26px 28px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 17px; margin: 26px 0 8px; }
+  .meta { color: #6b7684; font-size: 14px; }
+  code { background: #eef1f5; padding: 1px 6px; border-radius: 5px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 15px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #eceff3; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Northwind Docs Engine — proposal</h1>
+    <div class="meta">Bidder: Northwind Studio · Price 950 credits · Delivery 30 days</div>
+
+    <h2>1. Repository</h2>
+    <p>The tool is at <code>github.com/northwind-studio/docs-engine</code>, Apache-2.0, with the parser, the renderer and the CLI. The README covers install, a five-minute quickstart, the config schema and the three failure modes we hit ourselves. Twelve example repositories are in <code>examples/</code>.</p>
+
+    <h2>2. Live URL</h2>
+    <p><code>docs-engine.northwind.dev</code> runs the current build against a sample FastAPI repository. Pressing "generate" produces the reference page in the browser and shows the diff against the previous run, so drift is visible rather than described.</p>
+
+    <h2>3. Two-week plan</h2>
+    <table>
+      <tr><th>Week</th><th>Ships</th></tr>
+      <tr><td>Week 1 (days 1-7)</td><td>Parser for OpenAPI and docstrings; 48 endpoints covered on the sample; full run 9 seconds.</td></tr>
+      <tr><td>Week 2 (days 8-14)</td><td>Diff view, the CI action, and the drift report. 120 endpoints; full run 14 seconds.</td></tr>
+    </table>
+    <p>Delivery on day 30 includes a recorded walkthrough and a migration note for our current hand-written reference.</p>
+
+    <h2>4. Maintenance</h2>
+    <p>Six months of maintenance, owner <strong>Ana Ruiz</strong>, first response within one working day and a fix or rollback within three. The commitment is written into <code>MAINTENANCE.md</code> with the dates.</p>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TenderBoard, sealed bids, one reading, an award you can check</title>
+<meta name="description" content="A tender whose rubric is fixed on chain, whose prices stay sealed until reveal, and whose winner is computed in code." />
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --ink: #1f2733;
+    --muted: #667085;
+    --line: #e3e7ec;
+    --accent: #4356c7;
+    --accent-soft: #eef1ff;
+    --good: #17795e;
+    --good-soft: #e8f5f0;
+    --warn: #a15a12;
+    --warn-soft: #fdf3e6;
+    --bad: #b03a3a;
+    --bad-soft: #fdeeee;
+    --radius: 14px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15.5px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.top {
+    border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,.86);
+    backdrop-filter: saturate(180%) blur(8px);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .top-in { max-width: 1180px; margin: 0 auto; padding: 14px 22px; display: flex; align-items: center; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
+  .mark {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(140deg, #4356c7, #6f7ef0);
+    display: grid; place-items: center; color: #fff; font-size: 13px; font-weight: 700;
+  }
+  .tagline { color: var(--muted); font-size: 13.5px; border-left: 1px solid var(--line); padding-left: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-right button { white-space: nowrap; }
+  @media (max-width: 880px) { .tagline { display: none; } }
+  .top-right { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--muted); }
+
+  .hero { padding: 40px 0 22px; }
+  h1 { font-size: clamp(28px, 3.4vw, 40px); line-height: 1.12; letter-spacing: -0.03em; margin: 0 0 12px; max-width: 760px; }
+  .lede { color: var(--muted); max-width: 660px; margin: 0; font-size: 16px; }
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; min-width: 104px; }
+  .stat b { display: block; font-size: 19px; letter-spacing: -0.02em; }
+  .stat span { color: var(--muted); font-size: 12.5px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 20px; align-items: start; margin-top: 26px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+  .card-head { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .card-head h2 { font-size: 15px; margin: 0; letter-spacing: -0.01em; }
+  .card-body { padding: 16px 18px; }
+
+  .tender {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    padding: 15px 18px; border: 0; border-bottom: 1px solid var(--line);
+    background: transparent; font: inherit; color: inherit;
+  }
+  .tender:last-child { border-bottom: 0; }
+  .tender:hover { background: #fafbfc; }
+  .tender.sel { background: var(--accent-soft); }
+  .tender .row1 { display: flex; align-items: center; gap: 8px; }
+  .tender h3 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+  .tender .sub { color: var(--muted); font-size: 13px; margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .pill {
+    font-size: 11.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line);
+    color: var(--muted); background: #fff; white-space: nowrap;
+  }
+  .pill.open { color: var(--accent); border-color: #ccd4ff; background: var(--accent-soft); }
+  .pill.scoring { color: var(--warn); border-color: #f0d9bd; background: var(--warn-soft); }
+  .pill.awarded { color: var(--good); border-color: #c6e6da; background: var(--good-soft); }
+  .pill.cancelled { color: var(--bad); border-color: #f2cccc; background: var(--bad-soft); }
+
+  .detail-title { font-size: 20px; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .kv { color: var(--muted); font-size: 13.5px; }
+  .kv b { color: var(--ink); font-weight: 600; }
+
+  .weights { display: flex; height: 10px; border-radius: 999px; overflow: hidden; margin: 12px 0 8px; background: #eef0f3; }
+  .weights i { display: block; height: 100%; }
+  .w-quality { background: #4356c7; }
+  .w-price { background: #7f8cf0; }
+  .w-delivery { background: #b9c2f7; }
+  .legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+
+  .steps { display: flex; gap: 6px; margin: 18px 0 4px; flex-wrap: wrap; }
+  .step { flex: 1; min-width: 92px; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 2px solid var(--line); }
+  .step.on { color: var(--ink); border-top-color: var(--accent); }
+
+  .bid { padding: 13px 0; border-top: 1px solid var(--line); }
+  .bid:first-of-type { border-top: 0; }
+  .bid-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .bid-head .who { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+  .bid-meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .quote { margin-top: 6px; font-size: 13.5px; color: #475467; border-left: 2px solid var(--line); padding-left: 10px; }
+
+  .bars { margin-top: 8px; display: grid; gap: 5px; }
+  .bar-row { display: grid; grid-template-columns: 74px 1fr 42px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+  .bar { height: 7px; border-radius: 999px; background: #eef0f3; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+
+  .winner {
+    margin-top: 14px; padding: 12px 14px; border-radius: 12px;
+    background: var(--good-soft); border: 1px solid #c6e6da; color: #135c47; font-size: 14px;
+  }
+
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 5px; }
+  input, textarea {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px;
+    background: #fff; font: inherit; color: var(--ink);
+  }
+  input:focus, textarea:focus { outline: 2px solid #cdd5ff; border-color: #aab6ff; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  button {
+    font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink); padding: 9px 13px;
+  }
+  button:hover { border-color: #c9cfd8; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: #3a4bb4; }
+  button.ghost { background: transparent; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+  .note { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    background: #1f2733; color: #fff; padding: 11px 16px; border-radius: 10px;
+    font-size: 13.5px; max-width: min(560px, 92vw); z-index: 50; box-shadow: 0 10px 30px rgba(16,24,40,.18);
+  }
+  .toast.err { background: #7a2222; }
+  .empty { color: var(--muted); font-size: 14px; padding: 6px 0; }
+  .keys { display: flex; gap: 8px; align-items: center; }
+  code { font-family: var(--mono); font-size: 12.5px; background: #f2f4f7; padding: 1px 6px; border-radius: 6px; }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><span class="mark">TB</span> TenderBoard</div>
+    <div class="tagline">sealed bids / one reading / an award you can check</div>
+    <div class="top-right keys">
+      <span id="who">no key</span>
+      <button id="keybtn" class="ghost">New key</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero">
+    <h1>A tender where the price is sealed and the winner is arithmetic.</h1>
+    <p class="lede">The buyer fixes the brief and the weights on chain. Bidders commit a hash of their price, reveal it once the bids are in, and a single consensus round reads each proposal against the brief. Nobody sees the price early, and the award is computed, not negotiated.</p>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-head">
+        <h2>Tenders</h2>
+        <span class="pill" id="count">0</span>
+        <button id="toggle-open" class="ghost" style="margin-left:auto">Publish a tender</button>
+      </div>
+      <div id="open-form" style="display:none" class="card-body">
+        <label for="f-title">Title</label>
+        <input id="f-title" placeholder="Documentation tooling for a 40-person team" />
+        <label for="f-brief">Brief URL (a public page the validators can read)</label>
+        <input id="f-brief" placeholder="https://example.org/brief.html" />
+        <div class="two">
+          <div><label for="f-budget">Budget</label><input id="f-budget" type="number" value="1200" /></div>
+          <div><label for="f-bids">Max bids</label><input id="f-bids" type="number" value="4" /></div>
+        </div>
+        <label>Weights (must sum to 100)</label>
+        <div class="three">
+          <div><label for="f-wq">Quality</label><input id="f-wq" type="number" value="60" /></div>
+          <div><label for="f-wp">Price</label><input id="f-wp" type="number" value="30" /></div>
+          <div><label for="f-wd">Delivery</label><input id="f-wd" type="number" value="10" /></div>
+        </div>
+        <div class="actions"><button id="do-open" class="primary">Publish tender</button></div>
+        <p class="note">The rubric is written once. Changing it after bids arrive would defeat the point.</p>
+      </div>
+      <div id="list"></div>
+    </section>
+
+    <section class="card" id="detail">
+      <div class="card-body"><div class="empty">Pick a tender on the left, or publish the first one.</div></div>
+    </section>
+  </div>
+</div>
+
+<script src="./bundle.js"></script>
+</body>
+</html>
