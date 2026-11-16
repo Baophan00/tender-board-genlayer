@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tender brief — documentation tooling</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; background: #f4f5f7; color: #26303c;
+         font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  main { max-width: 780px; margin: 0 auto; padding: 56px 22px 96px; }
+  .card { background: #fff; border: 1px solid #e3e6ea; border-radius: 14px; padding: 26px 28px; }
+  h1 { font-size: 27px; line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 6px; }
+  h2 { font-size: 17px; margin: 26px 0 8px; }
+  .meta { color: #6b7684; font-size: 14px; }
+  ol { padding-left: 20px; }
+  li { margin: 8px 0; }
+  code { background: #eef1f5; padding: 1px 6px; border-radius: 5px; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Documentation tooling for a 40-person engineering team</h1>
+    <div class="meta">Buyer: Loom Labs · Budget 1,000 credits · Delivery within 60 days · Tender closes when the buyer closes it</div>
+
+    <h2>What we are buying</h2>
+    <p>A tool that keeps our public API reference in step with the code. Today one engineer rewrites the reference by hand every release, which takes two days and still drifts.</p>
+
+    <h2>The brief, in four requirements</h2>
+    <ol>
+      <li><strong>A public repository</strong> with the tool source, a licence, and a README that a new engineer can follow without asking us anything.</li>
+      <li><strong>A live URL</strong> that runs the tool on a sample repository, so we can watch a reference page being generated rather than read a claim that it works.</li>
+      <li><strong>A two-week plan with dates and numbers</strong>: what ships in week one, what ships in week two, how many endpoints the sample covers, and how long a full run takes.</li>
+      <li><strong>A maintenance commitment</strong> of at least six months, with a named person and a response time for a broken run.</li>
+    </ol>
+
+    <h2>How proposals are scored</h2>
+    <p>Quality is 60% of the score and is read against this page, once, by the validators. Price is 30% and favours the cheapest bid. Delivery time is 10% and favours the fastest. The weights were fixed when the tender opened and cannot change.</p>
+
+    <h2>What is not part of the brief</h2>
+    <p>Nothing about your company size, your other clients, or a slide deck. We read the repository, the live URL and the plan. A proposal that answers a different question scores accordingly.</p>
+
+    <p class="meta">This page is the brief the contract points at: <code>tender_board.get_tender(id).brief_url</code>.</p>
+  </div>
+</main>
+</body>
+</html>
