@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>TenderBoard — sealed bids, one reading, an award you can check</title>
+<title>TenderBoard, sealed bids, one reading, an award you can check</title>
 <meta name="description" content="A tender whose rubric is fixed on chain, whose prices stay sealed until reveal, and whose winner is computed in code." />
 <style>
   :root {
@@ -48,7 +48,9 @@
     background: linear-gradient(140deg, #4356c7, #6f7ef0);
     display: grid; place-items: center; color: #fff; font-size: 13px; font-weight: 700;
   }
-  .tagline { color: var(--muted); font-size: 13.5px; border-left: 1px solid var(--line); padding-left: 16px; }
+  .tagline { color: var(--muted); font-size: 13.5px; border-left: 1px solid var(--line); padding-left: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-right button { white-space: nowrap; }
+  @media (max-width: 880px) { .tagline { display: none; } }
   .top-right { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--muted); }
 
   .hero { padding: 40px 0 22px; }
@@ -158,7 +160,7 @@
 <header class="top">
   <div class="top-in">
     <div class="brand"><span class="mark">TB</span> TenderBoard</div>
-    <div class="tagline">sealed bids · one reading · an award you can check</div>
+    <div class="tagline">sealed bids / one reading / an award you can check</div>
     <div class="top-right keys">
       <span id="who">no key</span>
       <button id="keybtn" class="ghost">New key</button>

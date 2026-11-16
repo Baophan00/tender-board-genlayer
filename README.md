@@ -61,6 +61,35 @@ app/demo/                          the brief and two proposals the e2e run uses
 - Contract (Studio Network): `0x2B136ef09CDd0dc463560C13C2eC737C3EB65C81`
 - Explorer: https://explorer-studio.genlayer.com/address/0x2B136ef09CDd0dc463560C13C2eC737C3EB65C81
 
+## One tender on the live contract
+
+The brief and the two proposals are published next to the app. The cheaper bid is 800 for 40 days; the other is 1000 for 30 days.
+
+| what | transaction |
+| --- | --- |
+| deploy `0x2B136ef09CDd0dc463560C13C2eC737C3EB65C81` | `0xa424d73e05e8cd383bf0d7c91fb7b46ac30897ef308376920ccbaf365fbcdd92` |
+| `open_tender` — 3 criteria weights 60/30/10, budget 1200, up to 4 bids | `0xb2509a4a725a837aa079d57822a17bfd2bcd36cbbec3175970e4a79634f39fbd` |
+| the buyer bidding on their own tender — refused | `0xf5111b9b4972120132f46976859c6cd055b9d7164e5707e9f0b376103dcd53a9` |
+| `commit_bid` — 1000 credits, 30 days, sealed | `0x22ecb96e2df48e006cdf9072447327a540a170a7efe3e1166931e149a9b808dd` |
+| `reveal_bid` — the hash matches, the price opens | `0x7c389bf2b6e179e72f9683023193e369e10869efb0eff3baf97c89cd744e0b54` |
+| `commit_bid` — 800 credits, 40 days, sealed | `0x94bdb63be29e3ae09bed0cb805ff4b2b6982b1ac45261fe1b31bc14a094d69eb` |
+| a reveal with the wrong salt — refused, the bid stays sealed | `0x9f049644bed67464cd996a4116f37cf1492e912fabef606c393baab8ea607140` |
+| `reveal_bid` with the right salt | `0x7018adcf3a476996c687f7e65b096fa6fd483c70f53f7a933b876e2cea412681` |
+| `close_bidding` | `0x0350224e69a18c1a47d92780dadfa4e305bb7112cd073a9ded255d5531dc52a4` |
+| `score_bid(1)` — **strong**, 100, 52s | `0x3e0d16bbe4d60118ac9a0a959f57b04585d8c70b3d05e879f1e24b92ce635d11` |
+| `score_bid(2)` — **weak**, 35, 45s | `0xc81a1023809eadffd1909fac3ca40ec7cfb7007784eda06e10ff57f6dd02cb22` |
+| `award` — the weights decide | `0x70e512252f4da3f2638834cae6f0e78f493311f33615c3400b1e80ac7b55180d` |
+
+The award, as written by the contract:
+
+```
+bid 1  price 1000 | 30 days | strong | quality 100 | price  80 | delivery 100 | total 94
+bid 2  price  800 | 40 days | weak   | quality  35 | price 100 | delivery  75 | total 58
+winner bid 1 with 94 points
+```
+
+The cheaper bid wins every point that price can give it and still loses: 60% of the score is the reading of the proposal, and a page that answers a different question scores 35.
+
 ## Tests
 
 ```

@@ -139,6 +139,10 @@ async function renderList() {
       return button;
     })
   );
+  if (!selected) {
+    selected = rows[0].id;
+    await renderDetail();
+  }
 }
 
 function weightBar(weights) {
@@ -209,7 +213,7 @@ function bidRow(bid, tender, isBuyer) {
 
   const meta = el("div", "bid-meta");
   meta.textContent = bid.revealed
-    ? `price ${bid.price} · ${bid.days} days · total ${bid.total || "pending"}`
+    ? `price ${bid.price} / ${bid.days} days / total ${bid.total || "pending"}`
     : "price hidden until the bidder reveals it";
   box.append(meta);
 
@@ -311,7 +315,7 @@ async function renderDetail() {
   head.append(el("h2", "detail-title", tender.title));
   head.append(el("span", `pill ${tender.status}`, tender.status));
   body.append(head);
-  body.append(el("div", "kv", `buyer ${short(tender.buyer)}${isBuyer ? " (you)" : ""} · budget ${tender.budget} · up to ${tender.max_bids} bids`));
+  body.append(el("div", "kv", `buyer ${short(tender.buyer)}${isBuyer ? " (you)" : ""} / budget ${tender.budget} / up to ${tender.max_bids} bids`));
   body.append(el("div", "kv", `brief: ${tender.brief_url}`));
 
   const [bar, legend] = weightBar(tender.weights);
@@ -351,7 +355,7 @@ async function renderDetail() {
   if (tender.status === "open") body.append(revealForm(tender));
 
   body.append(
-    el("p", "note", `Weights fixed at open: quality ${tender.weights.quality} · price ${tender.weights.price} · delivery ${tender.weights.delivery}. Price score is 100 × cheapest/price, delivery 100 × fastest/days.`)
+    el("p", "note", `Weights fixed at open: quality ${tender.weights.quality} / price ${tender.weights.price} / delivery ${tender.weights.delivery}. Price score is 100 × cheapest/price, delivery 100 × fastest/days.`)
   );
 
   $("detail").replaceChildren(body);
