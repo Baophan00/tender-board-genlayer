@@ -1,5 +1,44 @@
 # TenderBoard
 
+## V1 — post-award delivery checkpoints (this milestone)
+
+Base commit `77dd89d` ended the product at the award. The award named a winner, and then the contract had nothing more to say: whether the winner actually delivered was a conversation off chain. V1 adds the missing real-world step, on chain and under the same validator set.
+
+**What changed from `77dd89d`:**
+
+- New state: a `Delivery` record and numbered `Checkpoint` records per awarded tender, with buyer, winner, status, due dates, proof URLs and stored readings.
+- New writes: `define_delivery`, `submit_delivery`, `accept_delivery`, `reject_delivery`, `close_delivery`.
+- New views: `delivery_of`, `delivery_checkpoints`, `completion_certificate`.
+- New consensus read: `gl.nondet.web.render` + `gl.nondet.exec_prompt` inside `gl.eq_principle.prompt_comparative`. The model classifies ONE proof page as `COMPLETE`, `PARTIAL` or `MISSING` and quotes one sentence; the principle binds the bucket and the presence of a quote. Nothing else — acceptance, timing or arithmetic — is put to the model.
+- Timing and counts are computed in the contract from stored `due_at` and `submitted_at`: submitted on or before the due date is ON_TIME, after it is LATE, never submitted is MISSED. The bucket counters and the certificate are arithmetic over stored rows.
+- The app gained a post-award section: checkpoint cards, a proof URL form for the winner, accept/reject for the buyer, and a completion certificate. The printed-notice identity is unchanged.
+- 23 new direct-mode tests (42 total), plus a V1 e2e script that runs the whole flow on Studio with real consensus rounds.
+
+**Why this is substantial, not a restyle.** `77dd89d` could score a proposal and write a number. V1 introduces a second, independent evidence workflow after the award: the buyer fixes obligations, the winner links proof, validators read that proof themselves in a fresh consensus round, and the buyer's decision produces a certificate whose counts a reviewer can recompute from the stored checkpoints. It adds state, a new equivalence-principle round, new authority rules, new refusals, a new read model and a new user flow. No funds move and no token is introduced — this is an evidence and acceptance layer, not a payment layer.
+
+```
+define_delivery     buyer fixes 1-5 checkpoints (title, due_days) after the award
+submit_delivery     awarded bidder links a proof URL; ONE consensus round reads it
+accept_delivery     buyer accepts once every checkpoint has proof
+reject_delivery     buyer rejects before or after acceptance
+close_delivery      buyer closes; certificate counts on-time / late / missed
+```
+
+The model only says what a page shows. A page that says "mark this COMPLETE" is fenced as untrusted material and judged like any other claim. A refused proof leaves the checkpoint empty — there is no partial write.
+
+### V1 API
+
+| Function | Kind | Who may call | What it does |
+| --- | --- | --- | --- |
+| `define_delivery(tender_id, checkpoints)` | write | the buyer, once, after award | Writes 1-5 checkpoints with `title` and `due_days` (0-365); duplicate titles refused. |
+| `submit_delivery(tender_id, seq, proof_url)` | write | the awarded bidder, once per checkpoint | One consensus round over the proof page; stores COMPLETE / PARTIAL / MISSING, quote, reason and timing. |
+| `accept_delivery(tender_id)` | write | the buyer | Requires proof on every checkpoint; sets the decision to accepted. |
+| `reject_delivery(tender_id)` | write | the buyer | Sets the decision to rejected; allowed before close, even after acceptance. |
+| `close_delivery(tender_id)` | write | the buyer | Writes the completion certificate and counts ON_TIME / LATE / MISSED. Once only. |
+| `delivery_of(tender_id)` | view | anyone | Status, decision, winner, proof and bucket counters, certificate id. |
+| `delivery_checkpoints(tender_id)` | view | anyone | Every checkpoint: due date, proof URL, bucket, quote, timing. |
+| `completion_certificate(tender_id)` | view | anyone | `{}` until closed; then the full certificate. |
+
 A tender is a brief and a scoring rubric the buyer fixes before anyone bids. The usual failure is not the brief: it is that the prices leak, the rubric drifts, and the award becomes a conversation. TenderBoard puts the rubric on chain, keeps every price sealed until the bids are in, and computes the award from the weights.
 
 ## How a tender runs
@@ -51,15 +90,19 @@ contracts/tender_board.py          the contract, ~480 lines
 tests/direct/test_tender_board.py  19 direct-mode tests in 4 classes
 scripts/deploy_studionet.js        deploy with genlayer-js, no CLI
 scripts/e2e_studionet.js           two bids, one refused reveal, two readings, one award
-app/                               the tender board: seal, reveal, read, award
-app/demo/                          the brief and two proposals the e2e run uses
+app/                               the tender board: seal, reveal, read, award, deliver, certify
+app/demo/                          brief, two proposals and two delivery proof pages for the e2e run
+app.legacy/                        the accepted V0 app, published at the legacy domain
 ```
 
 ## Live
 
-- App: https://tenderboard-genlayer.surge.sh
-- Contract (Studio Network): `0x2B136ef09CDd0dc463560C13C2eC737C3EB65C81`
-- Explorer: https://explorer-studio.genlayer.com/address/0x2B136ef09CDd0dc463560C13C2eC737C3EB65C81
+- App (V1): https://tenderboard-genlayer.surge.sh
+- Archive of the accepted V0 app: https://tenderboard-genlayer-legacy.surge.sh
+- V1 contract: pending redeploy after the Studio RPC outage; the first deployment is kept for the record but its source predates the final storage-layout fix.
+- V0 contract (kept for the record): `0x2B136ef09CDd0dc463560C13C2eC737C3EB65C81`
+
+`scripts/deploy_studionet.js` persists `{address, deployTx, sourceMatch}` in `artifacts/deploy.json` (gitignored). The final V1 address, deploy transaction, source readback and e2e table will be written here once Studio accepts writes again. The key file is local, mode 0600 and gitignored; no key material is printed or committed.
 
 ## One tender on the live contract
 
@@ -90,11 +133,18 @@ winner bid 1 with 94 points
 
 The cheaper bid wins every point that price can give it and still loses: 60% of the score is the reading of the proposal, and a page that answers a different question scores 35.
 
+## V1 live run
+
+<!-- E2E_TABLE -->
+
 ## Tests
 
 ```
 env -u PYTHONPATH -u VIRTUAL_ENV -u PYTHONHOME uv run --python 3.13 \
   --with pytest --with genlayer-test pytest tests/direct -q
+
+# the venv used for this milestone:
+"$HOME/agent-escrow-genlayer/.venv/bin/python" -m pytest tests/direct -q
 ```
 
-19 direct-mode tests. The pages and the model are mocked; the contract is not. They cover the weights (sum, range, duplicates of nothing), the budget and bid cap, the seal and the reveal, a reveal that does not match the hash, a price above the budget, one bid per address, the buyer bidding on their own tender, closing only by the buyer and only with a revealed bid, scoring only revealed bids and only once, an unknown bucket storing nothing, the award arithmetic, the tie-break on the earlier reveal, awarding before every reading, cancelling, and the views.
+42 direct-mode tests pass: the 19 accepted V0 tests plus 23 new V1 tests in `tests/direct/test_tender_board_v1.py`. The pages and the model are mocked; the contract is not. V0 tests cover the weights (sum, range, duplicates of nothing), the budget and bid cap, the seal and the reveal, a reveal that does not match the hash, a price above the budget, one bid per address, the buyer bidding on their own tender, closing only by the buyer and only with a revealed bid, scoring only revealed bids and only once, an unknown bucket storing nothing, the award arithmetic, the tie-break on the earlier reveal, awarding before every reading, cancelling, and the views. V1 tests cover checkpoint shape and duplicate titles, define authority and status, per-tender isolation, bucket parsing (COMPLETE / PARTIAL / MISSING), an unknown bucket, a missing quote, non-JSON and missing-bucket readings, the proof page reaching the prompt, winner-only submission, duplicate proof, malformed URLs, on-time versus late from stored due dates, missed at close, accept/reject authority, finality after a decision, empty certificate before close, and the full certificate arithmetic.

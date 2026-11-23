@@ -1,15 +1,16 @@
 {
   "name": "tender-board",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Sealed-bid tenders: commitments on chain, one consensus round per proposal, an award computed in code.",
+  "description": "Sealed-bid tenders with a post-award delivery layer: commitments on chain, consensus-read proposals and proof, and on-chain acceptance receipts.",
   "directories": {
     "test": "tests"
   },
   "scripts": {
     "test": "python -m pytest tests/direct -q",
     "deploy": "node scripts/deploy_studionet.js",
-    "e2e": "node scripts/e2e_studionet.js"
+    "e2e": "node scripts/e2e_studionet.js",
+    "verify-deploy": "node scripts/deploy_studionet.js --verify"
   },
   "license": "MIT",
   "dependencies": {

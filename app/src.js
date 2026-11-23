@@ -1,7 +1,7 @@
 import { createClient, createAccount, generatePrivateKey } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 
-const CONTRACT = "0x2B136ef09CDd0dc463560C13C2eC737C3EB65C81";
+const CONTRACT = "0x41d619696bA027dEC52262b9bE14391f61796b44";
 const EXPLORER = `https://explorer-studio.genlayer.com/address/${CONTRACT}`;
 const KEY_SLOT = "tenderboard.key";
 
@@ -42,6 +42,8 @@ function boot() {
   client = createClient({ chain: studionet, account });
   $("who").textContent = short(account.address);
   $("who").title = account.address;
+  const tag = document.getElementById("contract");
+  if (tag) { tag.textContent = `contract ${short(CONTRACT)}`; tag.title = CONTRACT; }
 }
 
 const refreshBtn = document.getElementById("refresh");
@@ -65,6 +67,7 @@ async function readWithRetry(functionName, args, tries = 2) {
       return await read(functionName, args);
     } catch (error) {
       last = error;
+      if (/rate limit|429/i.test(String((error && error.message) || error))) throw error;
       await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
     }
   }
@@ -119,7 +122,10 @@ async function renderStats() {
     );
   } catch (error) {
     $("stats").replaceChildren(el("div", "empty", `could not read the contract: ${String(error.message).slice(0, 120)}`));
+    return;
   }
+  const snapshot = document.getElementById("snapshot");
+  if (snapshot) snapshot.style.display = "none";
 }
 
 async function renderList() {
@@ -304,6 +310,131 @@ function revealForm(tender) {
   return form;
 }
 
+
+// ------------------------------------------------------- V1 post-award delivery
+
+function deliveryForm(tender) {
+  const wrap = el("div");
+  wrap.style.marginTop = "20px";
+  wrap.append(el("h2", "rubric-title", "Define delivery checkpoints"));
+  wrap.append(el("p", "note", "Fixed after the award. due_days counts from now; 0 is due immediately."));
+  const input = el("textarea");
+  input.id = "dl-json";
+  input.value = JSON.stringify([
+    { title: "Design sign-off", due_days: 10 },
+    { title: "Handover", due_days: 0 },
+  ], null, 2);
+  wrap.append(input);
+  const actions = el("div", "actions");
+  const button = el("button", "primary", "Define checkpoints");
+  button.addEventListener("click", async () => {
+    let items;
+    try { items = JSON.parse(input.value); }
+    catch { toast("checkpoints must be valid JSON", true); return; }
+    await run("Define delivery", "define_delivery", [tender.id, JSON.stringify(items)]);
+  });
+  actions.append(button);
+  wrap.append(actions);
+  return wrap;
+}
+
+function checkpointCard(row, tender, isWinner, active) {
+  const box = el("div", "checkpoint-card");
+  const head = el("div", "head");
+  head.append(el("strong", "", `checkpoint ${row.seq}`));
+  head.append(el("span", "", row.title));
+  head.append(el("span", row.bucket ? `pill ${row.bucket.toLowerCase()}` : "pill", row.bucket || "no proof"));
+  if (row.timing) head.append(el("span", `pill ${row.timing.toLowerCase().replace("_", "-")}`, row.timing));
+  box.append(head);
+
+  const due = row.due_at ? new Date(row.due_at * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "-";
+  box.append(el("div", "meta", `due ${due} / ${row.submitted_at ? "proof submitted" : "awaiting proof"}`));
+  if (row.proof_url) {
+    const line = el("div", "meta");
+    line.append(document.createTextNode("proof: "));
+    const link = el("a", "", row.proof_url);
+    link.href = row.proof_url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    line.append(link);
+    box.append(line);
+  }
+  if (row.quote) box.append(el("div", "quote", `“${row.quote}”`));
+
+  if (!row.submitted_at && isWinner && active) {
+    const label = el("label", "", `Proof URL - ${row.title}`);
+    const input = el("input");
+    input.id = `proof-${row.seq}`;
+    input.placeholder = "https://example.org/proof.html";
+    const actions = el("div", "actions");
+    const button = el("button", "", "Submit proof");
+    button.addEventListener("click", () => {
+      const url = input.value.trim();
+      if (!/^https?:\/\//i.test(url)) { toast("a full http(s) proof URL is required", true); return; }
+      run(`Proof for checkpoint ${row.seq}`, "submit_delivery", [tender.id, row.seq, url]);
+    });
+    actions.append(button);
+    box.append(label, input, actions);
+  }
+  return box;
+}
+
+function certificateBlock(cert) {
+  const box = el("div", "certificate");
+  box.append(el("h3", "", "Completion certificate"));
+  box.append(el("div", "id", cert.certificate_id));
+  box.append(el("div", "meta", `decision ${cert.decision} / winner ${short(cert.winner)} / ${cert.checkpoints} checkpoints`));
+  const counts = el("div", "counts");
+  for (const [number, label] of [[cert.on_time, "on time"], [cert.late, "late"], [cert.missed, "missed"]]) {
+    const cell = el("div");
+    cell.append(el("b", "", String(number)), el("span", "", label));
+    counts.append(cell);
+  }
+  box.append(counts);
+  box.append(el("div", "meta", `validator buckets: ${cert.complete} complete / ${cert.partial} partial / ${cert.missing} missing`));
+  return box;
+}
+
+async function deliverySection(tender, isBuyer, me) {
+  const wrap = el("div", "delivery");
+  const title = el("div", "docket-title");
+  title.append(el("span", "", "Delivery & acceptance"));
+  wrap.append(title);
+
+  let delivery = null;
+  try { delivery = await readWithRetry("delivery_of", [tender.id]); } catch { delivery = null; }
+  if (!delivery) {
+    if (isBuyer) wrap.append(deliveryForm(tender));
+    else wrap.append(el("div", "empty", "No delivery plan has been published for this award yet."));
+    return wrap;
+  }
+  wrap.append(el("div", "byline", `status ${delivery.status} / ${delivery.submitted} of ${delivery.checkpoints} proofs / winner ${short(delivery.winner)}`));
+
+  let rows = [];
+  let cert = {};
+  try {
+    rows = await readWithRetry("delivery_checkpoints", [tender.id]);
+    cert = await readWithRetry("completion_certificate", [tender.id]);
+  } catch {
+    wrap.append(el("div", "note", "The checkpoint views could not be read right now."));
+    return wrap;
+  }
+  const isWinner = delivery.winner === me;
+  for (const row of rows) wrap.append(checkpointCard(row, tender, isWinner, delivery.status === "active"));
+
+  if (isBuyer && delivery.status === "active") {
+    const actions = el("div", "actions");
+    const accept = el("button", "primary", "Accept delivery");
+    accept.addEventListener("click", () => run("Accept delivery", "accept_delivery", [tender.id]));
+    const reject = el("button", "ghost", "Reject delivery");
+    reject.addEventListener("click", () => run("Reject delivery", "reject_delivery", [tender.id]));
+    actions.append(accept, reject);
+    wrap.append(actions);
+  }
+  if (cert && cert.certificate_id) wrap.append(certificateBlock(cert));
+  return wrap;
+}
+
 async function renderDetail() {
   if (!selected) return;
   let tender;
@@ -311,9 +442,17 @@ async function renderDetail() {
   try {
     tender = await readWithRetry("get_tender", [selected]);
     bids = await readWithRetry("bids_of", [selected]);
+    try { localStorage.setItem("tenderboard.cache", JSON.stringify({ tender, bids, at: Date.now() })); } catch {}
   } catch (error) {
-    $("detail").replaceChildren(el("div", "card-body empty", String(error.message).slice(0, 160)));
-    return;
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem("tenderboard.cache") || "null"); } catch {}
+    if (!cached || !cached.tender || cached.tender.id !== selected) {
+      $("detail").replaceChildren(el("div", "card-body empty", String(error.message).slice(0, 160)));
+      return;
+    }
+    tender = cached.tender;
+    bids = cached.bids;
+    toast("Showing the last readable state: the public RPC refused this read.", true);
   }
   cache = { tender, bids };
   const me = account.address.toLowerCase();
@@ -381,6 +520,7 @@ async function renderDetail() {
   if (actions.childElementCount) body.append(actions);
 
   if (tender.status === "open") body.append(revealForm(tender));
+  if (tender.status === "awarded") body.append(await deliverySection(tender, isBuyer, me));
 
   body.append(
     el("p", "note", `Weights fixed at open: quality ${tender.weights.quality} / price ${tender.weights.price} / delivery ${tender.weights.delivery}. Price score is 100 x cheapest/price, delivery 100 x fastest/days.`)
@@ -419,4 +559,4 @@ $("do-open").addEventListener("click", async () => {
 
 boot();
 renderAll();
-setInterval(renderAll, 20000);
+
