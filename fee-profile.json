@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "network": "studionet",
+  "deploy": {
+    "leaderTimeunitsAllocation": "600",
+    "validatorTimeunitsAllocation": "600",
+    "executionBudgetPerRound": "20000000000000000",
+    "totalMessageFees": "0",
+    "rotationsPerRound": "1"
+  },
+  "methods": {
+    "open_tender": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "commit_bid": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "reveal_bid": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "close_bidding": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "score_bid": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "award": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "define_delivery": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "submit_delivery": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "accept_delivery": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "reject_delivery": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "close_delivery": {
+      "leaderTimeunitsAllocation": "600",
+      "validatorTimeunitsAllocation": "600",
+      "executionBudgetPerRound": "20000000000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    }
+  }
+}

@@ -15,6 +15,7 @@ const crypto = require("crypto");
 const { spawnSync } = require("child_process");
 const { createClient, createAccount, generatePrivateKey } = require("genlayer-js");
 const { studionet } = require("genlayer-js/chains");
+const FEE_PROFILE = require("../fee-profile.json");
 
 const KEY_PATH = path.join(__dirname, ".tender-keys.json");
 const ARTIFACT = path.join(process.cwd(), "artifacts/deploy.json");
@@ -31,6 +32,19 @@ function loadKeys() {
   };
   fs.writeFileSync(KEY_PATH, JSON.stringify(fresh, null, 2), { mode: 0o600 });
   return fresh;
+}
+
+async function deployFees(client) {
+  const row = FEE_PROFILE.deploy;
+  const estimate = await client.estimateTransactionFees({
+    leaderTimeunitsAllocation: BigInt(row.leaderTimeunitsAllocation),
+    validatorTimeunitsAllocation: BigInt(row.validatorTimeunitsAllocation),
+    executionBudgetPerRound: BigInt(row.executionBudgetPerRound),
+    totalMessageFees: BigInt(row.totalMessageFees || "0"),
+    appealRounds: 0n,
+    rotations: [0n],
+  });
+  return { distribution: estimate.distribution, feeValue: estimate.feeValue };
 }
 
 async function retrying(label, fn) {
@@ -99,7 +113,8 @@ function deployedSource(address) {
   const localHash = crypto.createHash("sha256").update(local).digest("hex");
 
   console.log("buyer ", account.address);
-  const hash = await retrying("deploy", () => client.deployContract({ code: new Uint8Array(Buffer.from(local)), args: [] }));
+  const fees = await deployFees(client);
+  const hash = await retrying("deploy", () => client.deployContract({ code: new Uint8Array(Buffer.from(local)), args: [], fees }));
   console.log("deploy tx", hash);
 
   const receipt = await retrying("receipt", () =>

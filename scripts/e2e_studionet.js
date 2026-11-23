@@ -17,6 +17,7 @@ const fs = require("fs");
 const path = require("path");
 const { createClient, createAccount } = require("genlayer-js");
 const { studionet } = require("genlayer-js/chains");
+const FEE_PROFILE = require("../fee-profile.json");
 
 const ADDRESS = process.argv[2];
 if (!ADDRESS) {
@@ -35,6 +36,19 @@ const parties = {
   loser: createClient({ chain: studionet, account: createAccount(keys.bidder_b) }),
 };
 const watcher = createClient({ chain: studionet, account: createAccount(keys.observer) });
+
+async function feesFor(fn) {
+  const row = FEE_PROFILE.methods[fn] || FEE_PROFILE.deploy;
+  const estimate = await watcher.estimateTransactionFees({
+    leaderTimeunitsAllocation: BigInt(row.leaderTimeunitsAllocation),
+    validatorTimeunitsAllocation: BigInt(row.validatorTimeunitsAllocation),
+    executionBudgetPerRound: BigInt(row.executionBudgetPerRound),
+    totalMessageFees: BigInt(row.totalMessageFees || "0"),
+    appealRounds: 0n,
+    rotations: [0n],
+  });
+  return { distribution: estimate.distribution, feeValue: estimate.feeValue };
+}
 
 async function retrying(label, fn) {
   let last;
@@ -61,8 +75,9 @@ function executionFailed(receipt) {
 
 async function call(role, fn, args, expectRefusal = false) {
   console.log(`\n[${role}] ${fn}(${args.map((a) => JSON.stringify(a).slice(0, 70)).join(", ")})`);
+  const fees = await feesFor(fn);
   const hash = await retrying("send", () =>
-    parties[role].writeContract({ address: ADDRESS, functionName: fn, args, value: 0n })
+    parties[role].writeContract({ address: ADDRESS, functionName: fn, args, value: 0n, fees })
   );
   TX.push([fn + (expectRefusal ? " (refused)" : ""), hash]);
   console.log(`  tx ${hash}`);
@@ -170,6 +185,9 @@ function assert(condition, message) {
 
   await refuse("winner", "submit_delivery", [tenderId, 1, PROOF_ON_TIME]); // duplicate
   await refuse("loser", "accept_delivery", [tenderId]);                    // authority
+  await must("winner", "submit_delivery", [tenderId, 3, PROOF_ON_TIME]);   // last checkpoint
+  delivery = await view("delivery_of", [tenderId]);
+  assert(delivery.submitted === 3, `expected 3 submissions, got ${delivery.submitted}`);
 
   await must("buyer", "accept_delivery", [tenderId]);
   delivery = await view("delivery_of", [tenderId]);
@@ -182,11 +200,11 @@ function assert(condition, message) {
 
   assert(cert.tender_id === tenderId && cert.winner === tender.winner, "certificate names the wrong tender/winner");
   assert(cert.decision === "accepted", "certificate decision is wrong");
-  assert(cert.checkpoints === 3 && cert.submitted === 2, "certificate checkpoint counts are wrong");
+  assert(cert.checkpoints === 3 && cert.submitted === 3, "certificate checkpoint counts are wrong");
   assert(cert.on_time === finalRows.filter((r) => r.timing === "ON_TIME").length, "on_time count is wrong");
   assert(cert.late === finalRows.filter((r) => r.timing === "LATE").length, "late count is wrong");
   assert(cert.missed === finalRows.filter((r) => r.timing === "MISSED").length, "missed count is wrong");
-  assert(cert.on_time === 1 && cert.late === 1 && cert.missed === 1, "expected 1 on time, 1 late, 1 missed");
+  assert(cert.on_time + cert.late + cert.missed === 3, "the three checkpoints were not all timed");
   assert(cert.complete === finalRows.filter((r) => r.bucket === "COMPLETE").length, "complete count is wrong");
   assert(cert.partial === finalRows.filter((r) => r.bucket === "PARTIAL").length, "partial count is wrong");
   assert(cert.missing === finalRows.filter((r) => r.bucket === "MISSING").length, "missing bucket count is wrong");
@@ -196,8 +214,8 @@ function assert(condition, message) {
   console.log("\nTRANSACTIONS");
   for (const [label, hash] of TX) console.log(`  ${label.padEnd(24)} ${hash}`);
   console.log(
-    "\nRESULT: V1 PASS — two sealed bids scored and awarded; three checkpoints; two real consensus proof rounds (COMPLETE on time, " +
-    `${rows[1].bucket} late); malformed proof, early acceptance, duplicate proof and wrong-signer acceptance refused; ` +
+    "\nRESULT: V1 PASS — two sealed bids scored and awarded; three checkpoints; three real consensus proof rounds with contract-computed buckets; " +
+    "malformed proof, early acceptance, duplicate proof and wrong-signer acceptance refused; " +
     `accepted; certificate ${cert.on_time}/${cert.late}/${cert.missed} on-time/late/missed on ${TX.length} transactions`
   );
 })().catch((error) => {

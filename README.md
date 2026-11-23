@@ -99,10 +99,12 @@ app.legacy/                        the accepted V0 app, published at the legacy 
 
 - App (V1): https://tenderboard-genlayer.surge.sh
 - Archive of the accepted V0 app: https://tenderboard-genlayer-legacy.surge.sh
-- V1 contract: pending redeploy after the Studio RPC outage; the first deployment is kept for the record but its source predates the final storage-layout fix.
+- V1 contract (Studio Network): `0xaA3a4DeBB4bD815A1209311faed6d4811675C484`
+- V1 explorer: https://explorer-studio.genlayer.com/address/0xaA3a4DeBB4bD815A1209311faed6d4811675C484
+- V1 deploy tx: `0x41e079e8725198978c2f2fc3655ecf6e76e1afb88490429d36771da8225f96e5`
 - V0 contract (kept for the record): `0x2B136ef09CDd0dc463560C13C2eC737C3EB65C81`
 
-`scripts/deploy_studionet.js` persists `{address, deployTx, sourceMatch}` in `artifacts/deploy.json` (gitignored). The final V1 address, deploy transaction, source readback and e2e table will be written here once Studio accepts writes again. The key file is local, mode 0600 and gitignored; no key material is printed or committed.
+Studio now charges fees on writes. `fee-profile.json` is the checked-in profile; deploy used `genlayer@0.40.0 deploy --contract contracts/tender_board.py --fee-profile fee-profile.json --fee-preset low`. The source read back with `genlayer code` matches `contracts/tender_board.py` byte for byte after stripping the CLI wrapper. The key file is local, mode 0600 and gitignored; no key material is printed or committed.
 
 ## One tender on the live contract
 
@@ -135,7 +137,31 @@ The cheaper bid wins every point that price can give it and still loses: 60% of 
 
 ## V1 live run
 
-<!-- E2E_TABLE -->
+| Step | Transaction |
+|---|---|
+| open_tender | `0x7eea4626f44c4a9106f10e93d02c19eb6d0418f151c6a506ba2a4fc9bcd4fe2a` |
+| commit_bid (refused) | `0xd8ea6710052da01be7e60b54a32987b56843be6ff53a0f514826b7c7a8e676f5` |
+| commit_bid | `0x66bdcedd725c89fa2ca099f46471f7393657d57402644d62d4c942a194e3a6c8` |
+| reveal_bid | `0xe16c1d3738a21956c548177969b70a634a12a7fc548b1348a3e67b2a394393c9` |
+| commit_bid | `0x54c7645d66d7b48ea747a382fbf5aa02880cff98bd851dd4a53ef5e9c8719d08` |
+| reveal_bid (refused) | `0xbe24712d7eb297e46e7ed4713b4e365d43afb0334e438cd2ec5bf5b27b005a2c` |
+| reveal_bid | `0xf6b321d35c40d2650feffbd7195e71f16322e390b7882beefc1a680ec5706353` |
+| close_bidding | `0x7cdf1b3bccbd2583308fe899a03bd8d0222a25452254ed652ddd8626c3fbc441` |
+| score_bid | `0x200893f831b94e7a3907ae8bd76e72e0af1601c483d446576f8f0535f3ff51e3` |
+| score_bid | `0x7bd679eb75753194b8752e0b9bb56eeea0d36e96a379c729f9544a9a119de462` |
+| award | `0x79547b65b280505dfe3d22f121a791581d73217a395d93acc884398cc13e2cf7` |
+| define_delivery | `0x64e75ba0af190513ea17aeb79991e5556e4aa9f852f9176d8d0ba93f974e7cef` |
+| accept_delivery (refused) | `0xee13bd99a19146658c1fc223b0c22939a676a484734abe7c644030f23b9d9fad` |
+| submit_delivery (refused) | `0x36e219516097a251e86c70c2d63f0229a46e9b3c99b34fc61b68d208cc4f9196` |
+| submit_delivery | `0x23e43210c4d6d1c3d58a09edf0ce86132e542ff7db87f2528f9f5f86529c4af3` |
+| submit_delivery | `0xc10bce921ba2da0b9172ec46b189ef88f4abd2d94ed2b5763402ec6da2c62b27` |
+| submit_delivery (refused) | `0xae7d1b6fb46a1251eef91fad8b2a75cc07813cae0391b2b9bce4177e0efff012` |
+| accept_delivery (refused) | `0xc642c9442ffb1c9c0fbaf39e3edaa2636e69735d2983ac993141f9d114802c7c` |
+| submit_delivery | `0x1d1456de7148b9cf7f5d1dfa9856da0808cc424366ca1da2ca10b77a42a5ba96` |
+| accept_delivery | `0x31c6c4ab14036a611e1a9b2a85ebd66cdbf033565a34e6c635d182d83101e6db` |
+| close_delivery | `0x8ee6907cf5ddbfe65a03ebcebeba08ebc1b06ce67f15125ec5e0326f53be10e0` |
+Certificate: `TB-V1-v1-fee-4-1795452614`; 3 checkpoints, 3 submissions, decision accepted, 1 on-time, 2 late, 0 missed. Consensus classified the proofs as one COMPLETE, one PARTIAL and one MISSING page. The result string was `V1 PASS` with 21 finalized transactions.
+
 
 ## Tests
 
